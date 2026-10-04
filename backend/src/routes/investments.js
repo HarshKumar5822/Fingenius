@@ -3,9 +3,75 @@ import Investment from '../models/Investment.js';
 import User from '../models/User.js';
 import Circle from '../models/Circle.js';
 import { protect } from '../middleware/auth.js';
+import { getLiveMarketTicker, fetchPriceForSymbol } from '../utils/marketDataService.js';
 
 const router = express.Router();
 router.use(protect);
+
+// Get live market overview ticker (Indices, Cryptos, Stocks, Gold)
+router.get('/live-ticker', async (req, res) => {
+  try {
+    const tickerData = await getLiveMarketTicker();
+    res.json({
+      status: 'success',
+      data: tickerData
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Sync all user investments with live market prices
+router.post('/sync-prices', async (req, res) => {
+  try {
+    const investments = await Investment.find({ user: req.user._id });
+    let updatedCount = 0;
+
+    for (const inv of investments) {
+      const symbolToFetch = inv.symbol || inv.name;
+      const priceData = await fetchPriceForSymbol(symbolToFetch, inv.type);
+
+      if (priceData && priceData.price) {
+        const qty = inv.quantity || 1;
+        inv.lastPrice = priceData.price;
+        inv.dayChange = priceData.dayChange || 0;
+        inv.dayChangePercent = priceData.dayChangePercent || 0;
+        inv.lastUpdated = new Date();
+
+        // Update currentValue based on live price & quantity if symbol is available
+        if (inv.symbol || inv.type === 'stock' || inv.type === 'crypto') {
+          inv.currentValue = Number((priceData.price * qty).toFixed(2));
+        }
+        await inv.save();
+        updatedCount++;
+      }
+    }
+
+    // Return updated list & summary
+    const updatedInvestments = await Investment.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const totalInvested = updatedInvestments.reduce((acc, curr) => acc + curr.amountInvested, 0);
+    const totalCurrentValue = updatedInvestments.reduce((acc, curr) => acc + curr.currentValue, 0);
+    const totalMonthlySip = updatedInvestments.reduce((acc, curr) => acc + (curr.sipAmount || 0), 0);
+    const overallReturns = totalCurrentValue - totalInvested;
+
+    res.json({
+      status: 'success',
+      message: `Successfully synced live prices for ${updatedCount} investments!`,
+      data: {
+        investments: updatedInvestments,
+        summary: {
+          totalInvested,
+          totalCurrentValue,
+          totalMonthlySip,
+          overallReturns,
+          growthPercentage: totalInvested > 0 ? ((overallReturns / totalInvested) * 100).toFixed(2) : 0
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
 
 // Get all investments
 router.get('/', async (req, res) => {
@@ -61,9 +127,24 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+    const body = { ...req.body };
+
+    // If symbol provided, try fetching initial price details
+    if (body.symbol) {
+      const priceData = await fetchPriceForSymbol(body.symbol, body.type);
+      if (priceData && priceData.price) {
+        body.lastPrice = priceData.price;
+        body.dayChange = priceData.dayChange || 0;
+        body.dayChangePercent = priceData.dayChangePercent || 0;
+        body.lastUpdated = new Date();
+        if (!body.currentValue || body.currentValue === 0) {
+          body.currentValue = Number((priceData.price * (body.quantity || 1)).toFixed(2));
+        }
+      }
+    }
 
     const investment = await Investment.create({
-      ...req.body,
+      ...body,
       user: req.user._id,
       circle: user.circle || null
     });

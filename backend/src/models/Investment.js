@@ -42,6 +42,32 @@ const investmentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  quantity: {
+    type: Number,
+    default: 1
+  },
+  symbol: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  lastPrice: {
+    type: Number,
+    default: 0
+  },
+  dayChange: {
+    type: Number,
+    default: 0
+  },
+  dayChangePercent: {
+    type: Number,
+    default: 0
+  },
+  lastUpdated: {
+    type: Date,
+    default: null
+  },
   notes: {
     type: String,
     trim: true

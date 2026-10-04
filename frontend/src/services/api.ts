@@ -126,7 +126,23 @@ export interface Investment {
   sipAmount?: number;
   frequency?: 'monthly' | 'one_time';
   startDate?: string;
+  quantity?: number;
+  symbol?: string;
+  lastPrice?: number;
+  dayChange?: number;
+  dayChangePercent?: number;
+  lastUpdated?: string;
   notes?: string;
+}
+
+export interface MarketTickerItem {
+  symbol: string;
+  name: string;
+  type: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  lastUpdated?: string;
 }
 
 export interface Subscription {
@@ -596,6 +612,15 @@ export const investmentService = {
 
   delete: async (id: string) => {
     const response = await api.delete<{ data: null }>(`/investments/${id}`);
+    return response.data;
+  },
+  getLiveTicker: async () => {
+    const response = await api.get<{ data: MarketTickerItem[] }>('/investments/live-ticker');
+    return response.data;
+  },
+
+  syncLivePrices: async () => {
+    const response = await api.post<{ message: string; data: { investments: Investment[]; summary: InvestmentSummary } }>('/investments/sync-prices');
     return response.data;
   },
 };

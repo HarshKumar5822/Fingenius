@@ -1,5 +1,4 @@
-import React from 'react';
-import { Heart, Sparkles, Shield, Github, Linkedin, Mail } from 'lucide-react';
+import { Heart, Sparkles, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface FooterProps {

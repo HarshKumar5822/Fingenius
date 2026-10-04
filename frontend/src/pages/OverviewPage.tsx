@@ -36,6 +36,7 @@ import {
   Investment as ApiInvestment,
 } from '../services/api';
 import { generateFinancialPDFReport } from '../utils/pdfGenerator';
+import LiveMarketTicker from '../components/LiveMarketTicker';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale);
@@ -392,57 +393,60 @@ export default function OverviewPage() {
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-3 p-1 sm:p-2">
+      {/* Live Market Ticker Banner */}
+      <LiveMarketTicker />
+
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+          <h1 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">Dashboard Overview</h1>
+          <p className="text-[11px] text-gray-500 dark:text-slate-400">
             Real-time financial summary calculated from your transactions & investments
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
             title="Export PDF Statement"
           >
-            <FileDown className="w-4 h-4 text-indigo-600" /> Export PDF Statement
+            <FileDown className="w-3.5 h-3.5 text-indigo-600" /> Export PDF Statement
           </button>
 
           <button
             onClick={() => loadDashboardData()}
             disabled={isLoading}
-            className="p-2 text-gray-500 hover:text-indigo-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-700 hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
+            className="p-1.5 text-gray-500 hover:text-indigo-600 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 dark:border-slate-700 hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
             title="Refresh Data"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700 transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Quick Add
+            <Plus className="w-3.5 h-3.5" /> Quick Add
           </button>
 
           {/* Time Range Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen((prev) => !prev)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white rounded-lg shadow hover:bg-gray-50 transition-colors border border-gray-100 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors border border-gray-100 dark:border-slate-700 cursor-pointer"
             >
               {selectedTimeRange}
               <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
                   isDropdownOpen ? 'rotate-180' : ''
                 }`}
               />
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in duration-150">
+              <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-100 dark:border-slate-700 py-1 z-50 animate-in fade-in duration-150">
                 {timeRangeOptions.map((option) => (
                   <button
                     key={option}
@@ -450,14 +454,14 @@ export default function OverviewPage() {
                       setSelectedTimeRange(option);
                       setIsDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between cursor-pointer ${
+                    className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between cursor-pointer ${
                       selectedTimeRange === option
-                        ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold'
+                        : 'text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                     }`}
                   >
                     {option}
-                    {selectedTimeRange === option && <Check className="w-4 h-4 text-indigo-600" />}
+                    {selectedTimeRange === option && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
                   </button>
                 ))}
               </div>
@@ -467,32 +471,32 @@ export default function OverviewPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+        <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
           {error}
         </div>
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((stat) => (
           <div
             key={stat.title}
-            className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+            className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 p-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-center justify-between">
-              <stat.icon className="w-5 h-5 text-gray-500" />
+              <stat.icon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
               <span
-                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                   stat.trend === 'positive'
-                    ? 'bg-green-50 text-green-600'
-                    : 'bg-red-50 text-red-600'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/50'
                 }`}
               >
                 {stat.change}
               </span>
             </div>
-            <h3 className="mt-4 text-sm font-medium text-gray-500">{stat.title}</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">
+            <h3 className="mt-2 text-xs font-semibold text-gray-500 dark:text-slate-400">{stat.title}</h3>
+            <p className="mt-0.5 text-xl font-black text-gray-900 dark:text-white">
               {isLoading ? (
                 <span className="inline-block w-24 h-6 bg-gray-200 animate-pulse rounded"></span>
               ) : (

@@ -1,14 +1,17 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   TrendingUp,
+  TrendingDown,
   PlusCircle,
   Wallet,
   Trash2,
   Calculator,
   ArrowUpRight,
   PieChart,
+  RefreshCw,
 } from 'lucide-react';
 import { investmentService, Investment, InvestmentSummary } from '../services/api';
+import LiveMarketTicker from '../components/LiveMarketTicker';
 import { toast } from 'sonner';
 import {
   Chart as ChartJS,
@@ -36,17 +39,31 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-
+const POPULAR_SYMBOLS = [
+  { symbol: 'RELIANCE.NS', name: 'Reliance Industries' },
+  { symbol: 'TCS.NS', name: 'TCS' },
+  { symbol: 'INFY.NS', name: 'Infosys' },
+  { symbol: 'HDFCBANK.NS', name: 'HDFC Bank' },
+  { symbol: 'TATAMOTORS.NS', name: 'Tata Motors' },
+  { symbol: 'SBIN.NS', name: 'State Bank of India' },
+  { symbol: 'BTC-USD', name: 'Bitcoin' },
+  { symbol: 'ETH-USD', name: 'Ethereum' },
+  { symbol: 'GOLD', name: 'Gold 24K' },
+  { symbol: 'NIFTY50', name: 'Nifty 50 Index' },
+];
 
 export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [summary, setSummary] = useState<InvestmentSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncingLive, setSyncingLive] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
-  const [type, setType] = useState<Investment['type']>('mutual_fund');
+  const [type, setType] = useState<Investment['type']>('stock');
+  const [symbol, setSymbol] = useState('');
+  const [quantity, setQuantity] = useState<number | ''>(1);
   const [amountInvested, setAmountInvested] = useState<number | ''>('');
   const [currentValue, setCurrentValue] = useState<number | ''>('');
   const [sipAmount, setSipAmount] = useState<number | ''>('');
@@ -67,6 +84,20 @@ export default function InvestmentsPage() {
       toast.error('Failed to load investments: ' + (error.message || ''));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncLivePrices = async () => {
+    try {
+      setSyncingLive(true);
+      const res = await investmentService.syncLivePrices();
+      setInvestments(res.data.investments);
+      setSummary(res.data.summary);
+      toast.success(res.message || 'Synced portfolio with live market prices!');
+    } catch (error: any) {
+      toast.error('Price sync failed: ' + (error.message || ''));
+    } finally {
+      setSyncingLive(false);
     }
   };
 
@@ -96,7 +127,7 @@ export default function InvestmentsPage() {
 
   const handleCreateInvestment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || amountInvested === '' || currentValue === '') {
+    if (!name || amountInvested === '') {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -105,15 +136,19 @@ export default function InvestmentsPage() {
       await investmentService.create({
         name,
         type,
+        symbol: symbol ? symbol.toUpperCase() : '',
+        quantity: quantity ? Number(quantity) : 1,
         amountInvested: Number(amountInvested),
-        currentValue: Number(currentValue),
+        currentValue: currentValue !== '' ? Number(currentValue) : Number(amountInvested),
         sipAmount: sipAmount ? Number(sipAmount) : 0,
         frequency,
       });
 
-      toast.success('Investment added successfully!');
+      toast.success('Investment asset added successfully!');
       setShowAddModal(false);
       setName('');
+      setSymbol('');
+      setQuantity(1);
       setAmountInvested('');
       setCurrentValue('');
       setSipAmount('');
@@ -168,43 +203,57 @@ export default function InvestmentsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-1 sm:p-2 space-y-3">
+      {/* Live Market Banner Ticker */}
+      <LiveMarketTicker />
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-indigo-600" />
-            Asset & Wealth Manager
+          <h1 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2 tracking-tight">
+            <TrendingUp className="w-6 h-6 text-indigo-600" />
+            Asset & Wealth Portfolio Manager
           </h1>
-          <p className="text-gray-600 dark:text-slate-400 mt-1">
-            Track your Mutual Funds, Stocks, FDs, and Gold. Automatically feeds into your 20% Wealth Creation Bucket!
+          <p className="text-[11px] text-gray-600 dark:text-slate-400">
+            Track your Mutual Funds, Stocks, Cryptos, FDs, and Gold with real-time live market updates.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-md shadow-indigo-100 cursor-pointer"
-        >
-          <PlusCircle className="w-5 h-5" />
-          Add Asset / SIP
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncLivePrices}
+            disabled={syncingLive}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingLive ? 'animate-spin' : ''}`} />
+            {syncingLive ? 'Syncing...' : 'Sync Live Prices'}
+          </button>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-sm cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Add Asset / SIP
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 shadow-md">
-          <div className="text-xs text-gray-500 dark:text-slate-400 font-medium">Total Portfolio Value</div>
-          <div className="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-3.5 border border-gray-100 dark:border-slate-800 shadow-sm">
+          <div className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">Total Portfolio Value</div>
+          <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">
             {formatCurrency(summary?.totalCurrentValue || 0)}
           </div>
-          <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-semibold flex items-center gap-1">
-            <ArrowUpRight className="w-3.5 h-3.5" /> Returns: {formatCurrency(summary?.overallReturns || 0)} ({summary?.growthPercentage}%)
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5 mt-0.5">
+            <ArrowUpRight className="w-3 h-3" /> Returns: {formatCurrency(summary?.overallReturns || 0)} ({summary?.growthPercentage}%)
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 shadow-md">
-          <div className="text-xs text-gray-500 dark:text-slate-400 font-medium">Total Principal Invested</div>
-          <div className="text-2xl font-extrabold text-gray-800 dark:text-slate-200 mt-1">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-3.5 border border-gray-100 dark:border-slate-800 shadow-sm">
+          <div className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">Total Principal Invested</div>
+          <div className="text-xl font-black text-gray-800 dark:text-slate-200 mt-0.5">
             {formatCurrency(summary?.totalInvested || 0)}
           </div>
         </div>
@@ -230,7 +279,7 @@ export default function InvestmentsPage() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 shadow-md">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <PieChart className="w-5 h-5 text-indigo-600" />
-            Portfolio Allocation
+            Portfolio Allocation Breakdown
           </h2>
           <div className="max-w-xs mx-auto">
             <Pie
@@ -252,10 +301,13 @@ export default function InvestmentsPage() {
 
       {/* Assets Grid */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 shadow-md space-y-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-indigo-600" />
-          Your Investment Portfolio
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-indigo-600" />
+            Your Investment Holdings
+          </h2>
+          <span className="text-xs text-slate-400">Click "Sync Live Prices" to refresh market valuations</span>
+        </div>
 
         {investments.length === 0 ? (
           <div className="text-center py-10 text-gray-500 dark:text-slate-400">
@@ -269,6 +321,9 @@ export default function InvestmentsPage() {
                 inv.amountInvested > 0
                   ? ((returns / inv.amountInvested) * 100).toFixed(1)
                   : '0';
+
+              const hasDayChange = inv.dayChangePercent !== undefined && inv.dayChangePercent !== 0;
+              const isDayPositive = (inv.dayChangePercent || 0) >= 0;
 
               return (
                 <div
@@ -287,10 +342,17 @@ export default function InvestmentsPage() {
                   <div>
                     {/* Header: Badge & Actions */}
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-lg border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1">
-                        <PieChart className="w-3.5 h-3.5" />
-                        {inv.type.replace('_', ' ')}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-lg border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1">
+                          <PieChart className="w-3.5 h-3.5" />
+                          {inv.type.replace('_', ' ')}
+                        </span>
+                        {inv.symbol && (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-900 text-slate-300 rounded border border-slate-700">
+                            {inv.symbol}
+                          </span>
+                        )}
+                      </div>
 
                       <button
                         onClick={() => handleDeleteInvestment(inv._id)}
@@ -308,12 +370,27 @@ export default function InvestmentsPage() {
 
                     {/* Current Value Panel */}
                     <div className="bg-gray-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-gray-100 dark:border-slate-700/50 mb-3">
-                      <p className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
-                        Current Portfolio Value
-                      </p>
-                      <p className="text-2xl font-black text-gray-900 dark:text-white mt-0.5">
-                        {formatCurrency(inv.currentValue)}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                          Current Value
+                        </p>
+                        {inv.quantity && inv.quantity > 1 ? (
+                          <span className="text-[10px] text-slate-400 font-mono">Qty: {inv.quantity}</span>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-baseline justify-between mt-0.5">
+                        <p className="text-2xl font-black text-gray-900 dark:text-white">
+                          {formatCurrency(inv.currentValue)}
+                        </p>
+
+                        {hasDayChange && (
+                          <span className={`text-xs font-bold flex items-center gap-0.5 ${isDayPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {isDayPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {isDayPositive ? '+' : ''}{inv.dayChangePercent}% Today
+                          </span>
+                        )}
+                      </div>
 
                       <div className="mt-2 pt-2 border-t border-gray-200/60 dark:border-slate-800 flex items-center justify-between text-xs">
                         <span className="text-gray-500 dark:text-slate-400">Principal Invested:</span>
@@ -326,7 +403,7 @@ export default function InvestmentsPage() {
                     {/* Gain / Loss Performance */}
                     <div className="flex items-center justify-between text-xs py-1">
                       <span className="text-gray-500 dark:text-slate-400 font-medium">
-                        Net Gain / Loss:
+                        Overall Gain / Loss:
                       </span>
                       <span
                         className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
@@ -447,7 +524,7 @@ export default function InvestmentsPage() {
       {/* Add Investment Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Asset / SIP Investment</h2>
 
             <form onSubmit={handleCreateInvestment} className="space-y-4">
@@ -456,7 +533,7 @@ export default function InvestmentsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Nifty 50 Index / Reliance Stock / Gold ETF"
+                  placeholder="e.g. Reliance Industries / Nifty 50 / Bitcoin"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -471,15 +548,64 @@ export default function InvestmentsPage() {
                     onChange={(e) => setType(e.target.value as any)}
                     className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="mutual_fund">Mutual Fund</option>
                     <option value="stock">Stock</option>
-                    <option value="fixed_deposit">Fixed Deposit</option>
-                    <option value="gold">Gold</option>
+                    <option value="mutual_fund">Mutual Fund</option>
                     <option value="crypto">Crypto</option>
+                    <option value="gold">Gold</option>
+                    <option value="fixed_deposit">Fixed Deposit</option>
                     <option value="ppf">PPF</option>
                     <option value="real_estate">Real Estate</option>
                     <option value="other">Other</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-slate-300 block mb-1">Ticker Symbol (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. RELIANCE.NS, BTC-USD"
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              {/* Quick symbol presets */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 block mb-1">Popular Tickers Quick Select:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {POPULAR_SYMBOLS.map((s) => (
+                    <button
+                      key={s.symbol}
+                      type="button"
+                      onClick={() => {
+                        setSymbol(s.symbol);
+                        setName(s.name);
+                        if (s.symbol.includes('BTC') || s.symbol.includes('ETH')) setType('crypto');
+                        else if (s.symbol === 'GOLD') setType('gold');
+                        else setType('stock');
+                      }}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-900 hover:bg-indigo-50 text-[10px] font-mono text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      {s.name} ({s.symbol})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-slate-300 block mb-1">Quantity / Units</label>
+                  <input
+                    type="number"
+                    min="0.0001"
+                    step="any"
+                    placeholder="e.g. 5"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
 
                 <div>
@@ -489,8 +615,8 @@ export default function InvestmentsPage() {
                     onChange={(e) => setFrequency(e.target.value as any)}
                     className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="monthly">Monthly SIP</option>
                     <option value="one_time">Lumpsum (One Time)</option>
+                    <option value="monthly">Monthly SIP</option>
                   </select>
                 </div>
               </div>
@@ -513,9 +639,8 @@ export default function InvestmentsPage() {
                   <label className="text-xs font-semibold text-gray-700 dark:text-slate-300 block mb-1">Current Value (₹)</label>
                   <input
                     type="number"
-                    required
                     min="0"
-                    placeholder="e.g. 12500"
+                    placeholder="Auto or e.g. 12500"
                     value={currentValue}
                     onChange={(e) => setCurrentValue(e.target.value ? Number(e.target.value) : '')}
                     className="w-full p-2.5 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -539,7 +664,7 @@ export default function InvestmentsPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg"
+                  className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -547,7 +672,7 @@ export default function InvestmentsPage() {
                   type="submit"
                   className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow cursor-pointer"
                 >
-                  Add Investment
+                  Add Asset Investment
                 </button>
               </div>
             </form>
