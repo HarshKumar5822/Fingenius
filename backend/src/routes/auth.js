@@ -6,8 +6,18 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const getJwtSecret = () => process.env.JWT_SECRET || 'fingenius_production_jwt_secret_key_2026_xyz';
-const getJwtExpiresIn = () => (process.env.JWT_EXPIRES_IN && process.env.JWT_EXPIRES_IN.trim() ? process.env.JWT_EXPIRES_IN.trim() : '30d');
+const getJwtSecret = () => {
+  const val = process.env.JWT_SECRET ? String(process.env.JWT_SECRET).trim().replace(/^["']|["']$/g, '') : '';
+  return (val && val !== 'undefined' && val !== 'null') ? val : 'fingenius_production_jwt_secret_key_2026_xyz';
+};
+
+const getJwtExpiresIn = () => {
+  const raw = process.env.JWT_EXPIRES_IN ? String(process.env.JWT_EXPIRES_IN).trim().replace(/^["']|["']$/g, '') : '';
+  if (!raw || raw === 'undefined' || raw === 'null' || !/^(\d+[smhdwy]?|\d+)$/i.test(raw)) {
+    return '30d';
+  }
+  return raw;
+};
 
 // Register route
 router.post('/register', async (req, res) => {
