@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_APP_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_APP_API_URL || import.meta.env.VITE_API_URL || 'https://fingenius-1-788r.onrender.com/api';
 
 // Types
 export interface User {
