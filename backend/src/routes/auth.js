@@ -6,6 +6,9 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const getJwtSecret = () => process.env.JWT_SECRET || 'fingenius_production_jwt_secret_key_2026_xyz';
+const getJwtExpiresIn = () => (process.env.JWT_EXPIRES_IN && process.env.JWT_EXPIRES_IN.trim() ? process.env.JWT_EXPIRES_IN.trim() : '30d');
+
 // Register route
 router.post('/register', async (req, res) => {
   try {
@@ -45,13 +48,10 @@ router.post('/register', async (req, res) => {
     await user.save();
 
     // Generate token
-    const jwtSecret = process.env.JWT_SECRET || 'fingenius_production_jwt_secret_key_2026_xyz';
-    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '30d';
-
     const token = jwt.sign(
       { userId: user._id },
-      jwtSecret,
-      { expiresIn: jwtExpiresIn }
+      getJwtSecret(),
+      { expiresIn: getJwtExpiresIn() }
     );
 
     res.status(201).json({
@@ -116,8 +116,8 @@ router.post('/login', async (req, res) => {
     // Generate token
     const token = jwt.sign(
       { userId: user._id },
-      jwtSecret,
-      { expiresIn: jwtExpiresIn }
+      getJwtSecret(),
+      { expiresIn: getJwtExpiresIn() }
     );
 
     res.json({
