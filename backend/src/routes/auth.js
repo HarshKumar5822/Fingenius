@@ -11,20 +11,29 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Name, email, and password are required'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         status: 'error',
-        message: 'User already exists with this email'
+        message: 'User already exists with this email address'
       });
     }
 
     // Create new user
     const user = new User({
-      name,
-      email,
-      phone: phone || '',
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone ? phone.trim() : '',
       password,
       settings: {
         currency: 'INR',
@@ -56,6 +65,12 @@ router.post('/register', async (req, res) => {
       }
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'User already exists with this email address'
+      });
+    }
     res.status(500).json({
       status: 'error',
       message: error.message
@@ -68,8 +83,17 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email and password are required'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Find user
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return res.status(401).json({
         status: 'error',
