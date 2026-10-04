@@ -45,10 +45,13 @@ router.post('/register', async (req, res) => {
     await user.save();
 
     // Generate token
+    const jwtSecret = process.env.JWT_SECRET || 'fingenius_production_jwt_secret_key_2026_xyz';
+    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '30d';
+
     const token = jwt.sign(
       { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      jwtSecret,
+      { expiresIn: jwtExpiresIn }
     );
 
     res.status(201).json({
@@ -113,8 +116,8 @@ router.post('/login', async (req, res) => {
     // Generate token
     const token = jwt.sign(
       { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      jwtSecret,
+      { expiresIn: jwtExpiresIn }
     );
 
     res.json({
